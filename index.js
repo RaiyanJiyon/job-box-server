@@ -48,7 +48,7 @@ async function run() {
         app.get('/jobs/:id', async (req, res) => {
             try {
                 const id = req.params.id;
-                const query = {_id: new ObjectId(id)};
+                const query = { _id: new ObjectId(id) };
                 const result = await jobsCollection.findOne(query);
 
                 if (result) {
@@ -60,7 +60,26 @@ async function run() {
                 console.error('Error fetching job data:', error);
                 res.status(500).send({ message: 'Failed to fetch job data' });
             }
-        })
+        });
+
+        app.get('/featured-jobs', async (req, res) => {
+            try {
+                const result = await jobsCollection
+                    .find()
+                    .sort({ postedTime: -1 })
+                    .limit(6)
+                    .toArray();
+
+                if (result.length > 0) {
+                    res.status(200).send(result);
+                } else {
+                    res.status(404).send({ message: 'Featured jobs data not found!' });
+                }
+
+            } catch (error) {
+                res.status(500).send({ error: "Failed to fetch featured jobs" });
+            }
+        });
 
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
