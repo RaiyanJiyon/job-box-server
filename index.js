@@ -26,10 +26,29 @@ async function run() {
         await client.connect();
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
+
+        // Get the database and collection on which to run the operation
+        const jobsCollection = client.db("jobDB").collection("jobs");
+
+        app.get('/jobs', async (req, res) => {
+            try {
+                const result = await jobsCollection.find().toArray();
+
+                if (result.length > 0) {
+                    res.status(200).send(result);
+                } else {
+                    res.status(404).send({ message: 'Jobs data not found!' });
+                }
+            } catch (error) {
+                console.error('Error fetching job data:', error);
+                res.status(500).send({ message: 'Failed to fetch job data' });
+            }
+        });
+
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
-        await client.close();
+        // await client.close();
     }
 }
 run().catch(console.dir);
