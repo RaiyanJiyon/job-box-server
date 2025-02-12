@@ -83,43 +83,59 @@ async function run() {
             }
         });
 
+        app.post('/jobs', async (req, res) => {
+            try {
+                const newJob = req.body;
+                const result = await jobsCollection.insertOne(newJob);
+        
+                if (result.insertedCount === 1) {
+                    res.status(201).send(result);
+                } else {
+                    res.status(400).send({ success: false, message: 'Failed to insert job' });
+                }
+            } catch (error) {
+                res.status(500).send({ success: false, message: 'Internal server error' });
+            }
+        });        
+
         // GET all users
         app.get('/users', async (req, res) => {
             try {
-                const result = await usersCollection.find().toArray();
-
-                if (result.length > 0) {
-                    res.status(200).send(result);
-                } else {
-                    res.status(404).send({ success: false, message: 'Users data not found' });
+                const { email } = req.query;
+        
+                if (email) {
+                    const existingUser = await usersCollection.findOne({ email });
+        
+                    if (existingUser) {
+                        return res.status(200).send(existingUser);
+                    } else {
+                        return res.status(200).send(null);
+                    }
                 }
+        
+                // If no email is provided, return all users
+                const result = await usersCollection.find().toArray();
+                res.status(200).send(result);
             } catch (error) {
                 console.error("Error fetching users data:", error);
                 res.status(500).send({ success: false, message: 'Failed to fetch users data' });
             }
         });
 
-        // GET a user by ID
-        app.get('/users/:id', async (req, res) => {
+        // GET a user by Email
+        app.get('/users/:email', async (req, res) => {
             try {
-                const id = req.params.id;
-
-                // Validate ObjectId
-                if (!ObjectId.isValid(id)) {
-                    return res.status(400).send({ success: false, message: 'Invalid user ID format' });
-                }
-
-                const query = { _id: new ObjectId(id) };
+                const email = req.params.email;
+                const query = {email: email};
                 const result = await usersCollection.findOne(query);
 
                 if (result) {
                     res.status(200).send(result);
                 } else {
-                    res.status(404).send({ success: false, message: 'User data not found' });
+                    res.status(404).send({message: 'User data not found'});
                 }
             } catch (error) {
-                console.error("Error fetching user data:", error);
-                res.status(500).send({ success: false, message: 'Failed to fetch user data' });
+                res.status(500).send({message: 'Failed to fetch user data'});
             }
         });
 
@@ -129,7 +145,7 @@ async function run() {
                 const newUser = req.body;
 
                 // Validate the incoming data (example: check if `name` exists)
-                if (!newUser || !newUser.name || !newUser.email) {
+                if (!newUser || !newUser.name || !newUser.email || !newUser.role) {
                     return res.status(400).send({ success: false, message: 'Invalid user data' });
                 }
 
