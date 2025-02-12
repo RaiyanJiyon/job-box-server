@@ -86,7 +86,9 @@ async function run() {
         app.post('/jobs', async (req, res) => {
             try {
                 const newJob = req.body;
+        
                 const result = await jobsCollection.insertOne(newJob);
+                console.log(result);
         
                 if (result.insertedCount === 1) {
                     res.status(201).send(result);
@@ -94,9 +96,26 @@ async function run() {
                     res.status(400).send({ success: false, message: 'Failed to insert job' });
                 }
             } catch (error) {
+                console.error("Error posting job:", error); // Log the error for debugging
                 res.status(500).send({ success: false, message: 'Internal server error' });
             }
-        });        
+        });    
+        
+        app.delete('/jobs/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const query = {_id: new ObjectId(id)};
+                const result = await jobsCollection.deleteOne(query);
+
+                if (result.deletedCount > 0) {
+                    res.status(200).send(result);
+                } else {
+                    res.status(404).send({ success: false, message: 'Job not found' });
+                }
+            } catch (error) {
+                res.status(500).send({ success: false, message: 'Internal server error' });
+            }
+        });
 
         // GET all users
         app.get('/users', async (req, res) => {
@@ -163,6 +182,46 @@ async function run() {
                 res.status(500).send({ success: false, message: "Internal server error" });
             }
         });
+
+        app.patch('/users/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const filter = {_id: new ObjectId(id)};
+                const updatedDoc = {
+                    $set: {
+                        role: req.body.role
+                    }
+                };
+
+                const result = await usersCollection.updateOne(filter, updatedDoc);
+
+                if (result.modifiedCount === 1) {
+                    res.status(200).send(result);
+                } else {
+                    res.status(404).send(`User with id: ${id} not found`);
+                }
+            } catch (error) {
+                res.status(500).send(`An error occurred: ${error.message}`);
+            }
+        })
+
+
+        app.delete('/users/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const query = { _id: new ObjectId(id) };
+                const result = await usersCollection.deleteOne(query);
+        
+                if (result.deletedCount > 0) {
+                    res.status(200).send(result);
+                } else {
+                    res.status(404).send({ success: false, message: 'User not found' });
+                }
+            } catch (error) {
+                res.status(500).send({ success: false, message: 'Internal server error' });
+            }
+        });
+        
 
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
