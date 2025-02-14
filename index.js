@@ -29,6 +29,7 @@ async function run() {
 
         // Get the database and collection on which to run the operation
         const jobsCollection = client.db("jobDB").collection("jobs");
+        const saveJobsCollection = client.db("jobDB").collection("saveJobs");
         const usersCollection = client.db("jobDB").collection("users");
 
         // jobs related API's
@@ -86,10 +87,10 @@ async function run() {
         app.post('/jobs', async (req, res) => {
             try {
                 const newJob = req.body;
-        
+
                 const result = await jobsCollection.insertOne(newJob);
                 console.log(result);
-        
+
                 if (result.insertedCount === 1) {
                     res.status(201).send(result);
                 } else {
@@ -99,12 +100,12 @@ async function run() {
                 console.error("Error posting job:", error); // Log the error for debugging
                 res.status(500).send({ success: false, message: 'Internal server error' });
             }
-        });    
-        
+        });
+
         app.delete('/jobs/:id', async (req, res) => {
             try {
                 const id = req.params.id;
-                const query = {_id: new ObjectId(id)};
+                const query = { _id: new ObjectId(id) };
                 const result = await jobsCollection.deleteOne(query);
 
                 if (result.deletedCount > 0) {
@@ -117,21 +118,71 @@ async function run() {
             }
         });
 
+
+        // save job's related API's
+        app.get('/saved-jobs/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const query = { _id: new ObjectId(id) };
+                const result = await saveJobsCollection.find(query).toArray();
+
+                if (result.length > 0) {
+                    res.status(200).send(result);
+                } else {
+                    res.status(404).send({ message: 'Saved jobs are not found' });
+                }
+            } catch (error) {
+                res.status(500).send({ message: '' });
+            }
+        });
+
+        // POST /saved-jobs
+        app.post('/saved-jobs', async (req, res) => {
+            try {
+                const { userId, jobId } = req.body;
+
+                // Validate inputs
+                if (!ObjectId.isValid(userId) || !jobId) {
+                    return res.status(400).send({ message: 'Invalid user ID or job ID format' });
+                }
+
+                // Check if the job is already saved by the same user
+                const existingJob = await saveJobsCollection.findOne({ userId, jobId });
+
+                if (existingJob) {
+                    return res.status(409).send({ message: 'Job is already saved by this user' });
+                }
+
+                // Save the job
+                const savedJob = { userId, jobId };
+                const result = await saveJobsCollection.insertOne(savedJob);
+
+                if (result.insertedId) {
+                    res.status(201).send({ message: 'Job saved successfully', savedJob });
+                } else {
+                    res.status(500).send({ message: 'Failed to save job' });
+                }
+            } catch (error) {
+                console.error('Error saving job:', error);
+                res.status(500).send({ message: 'Internal Server Error' });
+            }
+        });
+
         // GET all users
         app.get('/users', async (req, res) => {
             try {
                 const { email } = req.query;
-        
+
                 if (email) {
                     const existingUser = await usersCollection.findOne({ email });
-        
+
                     if (existingUser) {
                         return res.status(200).send(existingUser);
                     } else {
                         return res.status(200).send(null);
                     }
                 }
-        
+
                 // If no email is provided, return all users
                 const result = await usersCollection.find().toArray();
                 res.status(200).send(result);
@@ -145,16 +196,16 @@ async function run() {
         app.get('/users/:email', async (req, res) => {
             try {
                 const email = req.params.email;
-                const query = {email: email};
+                const query = { email: email };
                 const result = await usersCollection.findOne(query);
 
                 if (result) {
                     res.status(200).send(result);
                 } else {
-                    res.status(404).send({message: 'User data not found'});
+                    res.status(404).send({ message: 'User data not found' });
                 }
             } catch (error) {
-                res.status(500).send({message: 'Failed to fetch user data'});
+                res.status(500).send({ message: 'Failed to fetch user data' });
             }
         });
 
@@ -186,7 +237,7 @@ async function run() {
         app.patch('/users/:id', async (req, res) => {
             try {
                 const id = req.params.id;
-                const filter = {_id: new ObjectId(id)};
+                const filter = { _id: new ObjectId(id) };
                 const updatedDoc = {
                     $set: {
                         role: req.body.role
@@ -205,13 +256,12 @@ async function run() {
             }
         })
 
-
         app.delete('/users/:id', async (req, res) => {
             try {
                 const id = req.params.id;
                 const query = { _id: new ObjectId(id) };
                 const result = await usersCollection.deleteOne(query);
-        
+
                 if (result.deletedCount > 0) {
                     res.status(200).send(result);
                 } else {
@@ -221,7 +271,7 @@ async function run() {
                 res.status(500).send({ success: false, message: 'Internal server error' });
             }
         });
-        
+
 
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
