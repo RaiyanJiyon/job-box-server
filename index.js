@@ -118,28 +118,36 @@ async function run() {
             }
         });
 
-
         // save job's related API's
-        app.get('/saved-jobs/:id', async (req, res) => {
+
+        // GET /saved-jobs/:userId
+        app.get('/saved-jobs/:userId', async (req, res) => {
             try {
-                const id = req.params.id;
-                const query = { _id: new ObjectId(id) };
+                const userId = req.params.userId;
+
+                // Validate ObjectId for userId if needed
+                if (!ObjectId.isValid(userId)) {
+                    return res.status(400).send({ message: 'Invalid user ID format' });
+                }
+
+                const query = { userId: userId }; // Query to find all jobs saved by this user
                 const result = await saveJobsCollection.find(query).toArray();
 
-                if (result.length > 0) {
-                    res.status(200).send(result);
+                if (result && result.length > 0) {
+                    res.status(200).send(result); // Send all saved jobs for this user
                 } else {
-                    res.status(404).send({ message: 'Saved jobs are not found' });
+                    res.status(404).send({ message: 'No saved jobs found for this user' });
                 }
             } catch (error) {
-                res.status(500).send({ message: '' });
+                console.error('Error fetching saved jobs:', error);
+                res.status(500).send({ message: 'Internal Server Error' });
             }
         });
 
         // POST /saved-jobs
         app.post('/saved-jobs', async (req, res) => {
             try {
-                const { userId, jobId } = req.body;
+                const { userId, jobId, jobCategory, jobCompany, jobLogo, jobLocation, jobPosition } = req.body;
 
                 // Validate inputs
                 if (!ObjectId.isValid(userId) || !jobId) {
@@ -154,7 +162,7 @@ async function run() {
                 }
 
                 // Save the job
-                const savedJob = { userId, jobId };
+                const savedJob = { userId, jobId, jobCategory, jobCompany, jobLogo, jobLocation, jobPosition };
                 const result = await saveJobsCollection.insertOne(savedJob);
 
                 if (result.insertedId) {
@@ -165,6 +173,23 @@ async function run() {
             } catch (error) {
                 console.error('Error saving job:', error);
                 res.status(500).send({ message: 'Internal Server Error' });
+            }
+        });
+
+        // DELETE /saved-jobs
+        app.delete('/saved-jobs/:savedJobId', async (req, res) => {
+            try {
+                const jobId = req.params.savedJobId; // Corrected the parameter name
+                const query = { _id: new ObjectId(jobId) };
+                const result = await saveJobsCollection.deleteOne(query);
+
+                if (result.deletedCount > 0) {
+                    res.status(200).send(result);
+                } else {
+                    res.status(404).send({ message: 'Job not found' });
+                }
+            } catch (error) {
+                res.status(500).send({ message: 'Internal server error', error });
             }
         });
 
