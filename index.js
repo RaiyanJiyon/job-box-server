@@ -30,6 +30,7 @@ async function run() {
         // Get the database and collection on which to run the operation
         const jobsCollection = client.db("jobDB").collection("jobs");
         const saveJobsCollection = client.db("jobDB").collection("saveJobs");
+        const appliedJobsCollection = client.db("jobDB").collection("appliedJobs");
         const usersCollection = client.db("jobDB").collection("users");
 
         // jobs related API's
@@ -115,6 +116,71 @@ async function run() {
                 }
             } catch (error) {
                 res.status(500).send({ success: false, message: 'Internal server error' });
+            }
+        });
+
+        // applied job's related API's
+
+        // GET /applied-jobs/:userId
+        app.get('/applied-jobs/:userId', async (req, res) => {
+            try {
+                const userId = req.params.userId;
+
+                if (!ObjectId.isValid(userId)) {
+                    // Validate ObjectId for userId if needed
+                    return res.status(400).send({ message: 'Invalid user ID format' });
+                }
+
+                const query = { userId: userId };
+                const result = await appliedJobsCollection.find(query).toArray();
+
+                if (result.length > 0) {
+                    res.status(200).send(result);
+                } else {
+                    res.status(404).send({ message: 'Applied jobs not found' });
+                }
+            } catch (error) {
+                res.status(500).send({ message: 'Internal server issue' });
+            }
+        });
+
+        // POST /applied-jobs
+        app.post('/applied-jobs', async (req, res) => {
+            try {
+                const { userId, jobId, fullName, email, phone, resume, coverLetter } = req.body;
+
+                if (!userId || !jobId) {
+                    return res.status(400).json({ message: "Missing required fields" });
+                }
+
+                // Check if the job is already saved by the same user
+                const existingAppliedJob = await appliedJobsCollection.findOne({ userId, jobId });
+
+                if (existingAppliedJob) {
+                    return res.status(409).send({ message: 'Job is already applied by this user' });
+                }
+
+                const newApplication = {
+                    userId,
+                    jobId,
+                    fullName,
+                    email,
+                    phone,
+                    resume,
+                    coverLetter,
+                    appliedAt: new Date(),
+                };
+
+                const result = await appliedJobsCollection.insertOne(newApplication);
+
+                if (result.acknowledged) {
+                    res.status(200).json({ message: "Application submitted successfully", applicationId: result.insertedId });
+                } else {
+                    res.status(500).send({ message: 'Failed to applied the job' });
+                }
+            } catch (error) {
+                console.error("Error saving job application:", error);
+                res.status(500).json({ message: "Internal Server Error" });
             }
         });
 
