@@ -147,7 +147,7 @@ async function run() {
         // POST /applied-jobs
         app.post('/applied-jobs', async (req, res) => {
             try {
-                const { userId, jobId, fullName, email, phone, resume, coverLetter } = req.body;
+                const { userId, jobId, jobCompany, jobPosition, fullName, email, phone, resume, coverLetter } = req.body;
 
                 if (!userId || !jobId) {
                     return res.status(400).json({ message: "Missing required fields" });
@@ -163,6 +163,8 @@ async function run() {
                 const newApplication = {
                     userId,
                     jobId,
+                    jobCompany,
+                    jobPosition,
                     fullName,
                     email,
                     phone,
@@ -181,6 +183,24 @@ async function run() {
             } catch (error) {
                 console.error("Error saving job application:", error);
                 res.status(500).json({ message: "Internal Server Error" });
+            }
+        });
+
+        // DELETE /applied-jobs
+        app.delete('/applied-jobs/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const query = { _id: new ObjectId(id) };
+                const result = await appliedJobsCollection.deleteOne(query);
+
+                if (result.deletedCount > 0) {
+                    res.status(200).send(result);
+                } else {
+                    res.status(404).send({ message: 'Applied job is not found' });
+                }
+            } catch (error) {
+                console.error("Error deleting applied job:", error);
+                res.status(500).send({ message: 'Internal Server Issue' });
             }
         });
 
