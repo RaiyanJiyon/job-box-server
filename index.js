@@ -51,16 +51,28 @@ async function run() {
 
         app.get('/jobs-by-pagination', async (req, res) => {
             try {
-                const page = parseInt(req.query.page) || 1; // Default to page 1 if not provided
+                const page = parseInt(req.query.page) || 1; // Default to page 1
                 const limit = parseInt(req.query.limit) || 10; // Default to 10 items per page
-        
-                const totalJobs = await jobsCollection.countDocuments(); // Total number of jobs
+                const searchQuery = req.query.search || ''; // Get the search query from the request
+
+                // Build the filter for the search
+                const filter = searchQuery
+                    ? {
+                        $or: [
+                            { title: { $regex: searchQuery, $options: 'i' } }, // Case-insensitive search in the title
+                            { company: { $regex: searchQuery, $options: 'i' } }, // Case-insensitive search in the company
+                            { description: { $regex: searchQuery, $options: 'i' } }, // Case-insensitive search in the description
+                        ],
+                    }
+                    : {};
+
+                const totalJobs = await jobsCollection.countDocuments(filter); // Total number of matching jobs
                 const totalPages = Math.ceil(totalJobs / limit); // Total pages based on limit
-        
+
                 const skip = (page - 1) * limit; // Calculate how many documents to skip
-        
-                const result = await jobsCollection.find().skip(skip).limit(limit).toArray();
-        
+
+                const result = await jobsCollection.find(filter).skip(skip).limit(limit).toArray();
+
                 if (result.length > 0) {
                     res.status(200).send({
                         data: result,
@@ -71,7 +83,7 @@ async function run() {
                         },
                     });
                 } else {
-                    res.status(404).send({ message: 'No jobs found for this page!' });
+                    res.status(404).send({ message: 'No jobs found for this search!' });
                 }
             } catch (error) {
                 console.error('Error fetching job data:', error);
