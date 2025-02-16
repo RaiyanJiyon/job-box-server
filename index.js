@@ -49,6 +49,36 @@ async function run() {
             }
         });
 
+        app.get('/jobs-by-pagination', async (req, res) => {
+            try {
+                const page = parseInt(req.query.page) || 1; // Default to page 1 if not provided
+                const limit = parseInt(req.query.limit) || 10; // Default to 10 items per page
+        
+                const totalJobs = await jobsCollection.countDocuments(); // Total number of jobs
+                const totalPages = Math.ceil(totalJobs / limit); // Total pages based on limit
+        
+                const skip = (page - 1) * limit; // Calculate how many documents to skip
+        
+                const result = await jobsCollection.find().skip(skip).limit(limit).toArray();
+        
+                if (result.length > 0) {
+                    res.status(200).send({
+                        data: result,
+                        pagination: {
+                            currentPage: page,
+                            totalPages: totalPages,
+                            totalJobs: totalJobs,
+                        },
+                    });
+                } else {
+                    res.status(404).send({ message: 'No jobs found for this page!' });
+                }
+            } catch (error) {
+                console.error('Error fetching job data:', error);
+                res.status(500).send({ message: 'Failed to fetch job data' });
+            }
+        });
+
         app.get('/jobs/:id', async (req, res) => {
             try {
                 const id = req.params.id;
@@ -63,6 +93,31 @@ async function run() {
             } catch (error) {
                 console.error('Error fetching job data:', error);
                 res.status(500).send({ message: 'Failed to fetch job data' });
+            }
+        });
+
+        // GET /jobs/applied-by-email/:email
+        app.get('/jobs/applied-by-email/:email', async (req, res) => {
+            try {
+                const email = req.params.email;
+
+                // Query the database for jobs where appliedPersonInformation contains the email
+                const query = {
+                    appliedPersonInformation: {
+                        $elemMatch: { email: email }
+                    }
+                };
+
+                const result = await jobsCollection.find(query).toArray();
+
+                if (result && result.length > 0) {
+                    res.status(200).json(result); // Return the list of jobs
+                } else {
+                    res.status(404).json({ message: 'No jobs found for the given email' });
+                }
+            } catch (error) {
+                console.error("Error fetching jobs by email:", error);
+                res.status(500).json({ message: 'Internal server error' });
             }
         });
 
@@ -88,11 +143,11 @@ async function run() {
         app.post('/jobs', async (req, res) => {
             try {
                 const newJob = req.body;
-
+                console.log(newJob)
                 const result = await jobsCollection.insertOne(newJob);
                 console.log(result);
 
-                if (result.insertedCount === 1) {
+                if (result.acknowledged) {
                     res.status(201).send(result);
                 } else {
                     res.status(400).send({ success: false, message: 'Failed to insert job' });
