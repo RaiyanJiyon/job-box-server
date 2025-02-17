@@ -211,10 +211,33 @@ async function run() {
             }
         });
 
+        // GET /applied-jobs/by-company-email/:companyEmail
+        app.get('/applied-jobs/by-company-email/:companyEmail', async (req, res) => {
+            try {
+                const companyEmail = req.params.companyEmail;
+                if (!companyEmail || companyEmail.trim() === '') {
+                    return res.status(400).send({ message: 'Company email is required' });
+                }
+
+                // Use the correct field name in the query
+                const query = { postedPersonEmail: companyEmail };
+                const result = await appliedJobsCollection.find(query).toArray();
+
+                if (result.length > 0) {
+                    res.status(200).send(result);
+                } else {
+                    res.status(404).send({ message: 'No applied jobs found for this company email' });
+                }
+            } catch (error) {
+                console.error('Error fetching applied jobs:', error);
+                res.status(500).send({ message: 'Internal server issue' });
+            }
+        });
+
         // POST /applied-jobs
         app.post('/applied-jobs', async (req, res) => {
             try {
-                const { userId, jobId, jobCompany, jobPosition, fullName, email, phone, resume, coverLetter } = req.body;
+                const { userId, jobId, postedPersonEmail, jobCompany, jobPosition, fullName, email, phone, resume, coverLetter } = req.body;
 
                 if (!userId || !jobId) {
                     return res.status(400).json({ message: "Missing required fields" });
@@ -230,6 +253,7 @@ async function run() {
                 const newApplication = {
                     userId,
                     jobId,
+                    postedPersonEmail,
                     jobCompany,
                     jobPosition,
                     fullName,
@@ -346,23 +370,21 @@ async function run() {
             }
         });
 
-        // GET all users
+        // GET all users with search by email or name
         app.get('/users', async (req, res) => {
             try {
-                const { email } = req.query;
+                const { email, name } = req.query;
 
+                let query = {};
                 if (email) {
-                    const existingUser = await usersCollection.findOne({ email });
-
-                    if (existingUser) {
-                        return res.status(200).send(existingUser);
-                    } else {
-                        return res.status(200).send(null);
-                    }
+                    query.email = { $regex: email, $options: 'i' }; // Case-insensitive search
+                }
+                if (name) {
+                    query.name = { $regex: name, $options: 'i' }; // Case-insensitive search
                 }
 
-                // If no email is provided, return all users
-                const result = await usersCollection.find().toArray();
+                // If no query parameters are provided, return all users
+                const result = await usersCollection.find(query).toArray();
                 res.status(200).send(result);
             } catch (error) {
                 console.error("Error fetching users data:", error);
